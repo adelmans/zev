@@ -123,8 +123,9 @@ class TestOllamaProvider:
 
 
 class TestGeminiProvider:
+    @patch('zev.llms.gemini.provider.genai')
     @patch('zev.llms.gemini.provider.config')
-    def test_uses_configured_model(self, mock_config):
+    def test_uses_configured_model(self, mock_config, mock_genai):
         mock_config.gemini_api_key = "gemini-key"
         mock_config.gemini_model = "gemini-pro"
 
@@ -133,8 +134,9 @@ class TestGeminiProvider:
 
         assert provider.model == "gemini-pro"
 
+    @patch('zev.llms.gemini.provider.genai')
     @patch('zev.llms.gemini.provider.config')
-    def test_uses_default_model_when_not_configured(self, mock_config):
+    def test_uses_default_model_when_not_configured(self, mock_config, mock_genai):
         mock_config.gemini_api_key = "test-key"
         mock_config.gemini_model = None
 
@@ -152,15 +154,42 @@ class TestGeminiProvider:
         with pytest.raises(ValueError, match="GEMINI_API_KEY must be set"):
             GeminiProvider()
 
+    @patch('zev.llms.gemini.provider.genai')
     @patch('zev.llms.gemini.provider.config')
-    def test_api_url_includes_api_key(self, mock_config):
-        mock_config.gemini_api_key = "my-secret-key"
+    def test_get_options_returns_parsed_response(self, mock_config, mock_genai):
+        mock_config.gemini_api_key = "gemini-key"
         mock_config.gemini_model = "gemini-pro"
+
+        mock_response = MagicMock()
+        mock_response.text = '{"commands": [{"command": "ls", "short_explanation": "List", "is_dangerous": false}], "is_valid": true}'
+        mock_client = MagicMock()
+        mock_client.models.generate_content.return_value = mock_response
+        mock_genai.Client.return_value = mock_client
 
         from zev.llms.gemini.provider import GeminiProvider
         provider = GeminiProvider()
+        result = provider.get_options("list files", "OS: Linux")
 
-        assert "my-secret-key" in provider.api_url
+        assert result.is_valid is True
+        assert result.commands[0].command == "ls"
+
+    @patch('zev.llms.gemini.provider.genai')
+    @patch('zev.llms.gemini.provider.config')
+    def test_get_options_returns_none_on_auth_error(self, mock_config, mock_genai, capsys):
+        mock_config.gemini_api_key = "invalid-key"
+        mock_config.gemini_model = "gemini-pro"
+
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = mock_genai.errors.ClientError("API_KEY_INVALID")
+        mock_genai.Client.return_value = mock_client
+
+        from zev.llms.gemini.provider import GeminiProvider
+        provider = GeminiProvider()
+        result = provider.get_options("test", "context")
+
+        assert result is None
+        captured = capsys.readouterr()
+        assert "error" in captured.out.lower()
 
 
 class TestAzureOpenAIProvider:
