@@ -1,3 +1,5 @@
+from typing import Optional
+
 from openai import AuthenticationError, OpenAI
 
 from zev.config import config
@@ -18,7 +20,7 @@ class OpenAIProvider(InferenceProvider):
         self.client = OpenAI(base_url=OPENAI_BASE_URL, api_key=config.openai_api_key)
         self.model = config.openai_model or OPENAI_DEFAULT_MODEL
 
-    def get_options(self, prompt: str, context: str) -> OptionsResponse | None:
+    def get_options(self, prompt: str, context: str) -> Optional[OptionsResponse]:
         try:
             assembled_prompt = PROMPT.format(prompt=prompt, context=context)
             response = self.client.beta.chat.completions.parse(

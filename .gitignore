@@ -1,6 +1,8 @@
 .env
+.venv/
+uv.lock
 
-src/*.egg-info
+*.egg-info
 **/__pycache__
 
 # mac os
@@ -9,3 +11,6 @@ src/*.egg-info
 # dist
 /dist
 .aider*
+
+# pytest
+.pytest_cache
